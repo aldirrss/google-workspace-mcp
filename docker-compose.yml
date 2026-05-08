@@ -1,7 +1,7 @@
 services:
-  google-workspace-mcp:
+  mcp:
     build: .
-    container_name: google-workspace-mcp
+    container_name: google-workspace
     restart: unless-stopped
     ports:
       - "${SERVER_PORT:-8347}:${SERVER_PORT:-8347}"
