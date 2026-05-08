@@ -8,6 +8,8 @@ Flow:
   4. Tool call  → Bearer token      → load_access_token() → user lookup
 """
 
+import base64
+import hashlib
 import secrets
 import time
 from typing import Any
@@ -83,10 +85,7 @@ class GoogleOAuthProvider(
         params: AuthorizationParams,
     ) -> str:
         google_state = secrets.token_urlsafe(32)
-        self._pending_auths[google_state] = {
-            "mcp_client": client,
-            "mcp_params": params,
-        }
+        code_verifier, code_challenge = _pkce_pair()
 
         redirect_uri = f"{self._base_url}/google/callback"
         flow = build_flow(self._client_config, redirect_uri)
@@ -94,8 +93,15 @@ class GoogleOAuthProvider(
             access_type="offline",
             prompt="consent",
             state=google_state,
-            include_granted_scopes="true",
+            code_challenge=code_challenge,
+            code_challenge_method="S256",
         )
+
+        self._pending_auths[google_state] = {
+            "mcp_client":    client,
+            "mcp_params":    params,
+            "code_verifier": code_verifier,
+        }
         return auth_url
 
     async def handle_google_callback(
@@ -118,7 +124,7 @@ class GoogleOAuthProvider(
 
         redirect_uri = f"{self._base_url}/google/callback"
         flow = build_flow(self._client_config, redirect_uri)
-        flow.fetch_token(code=code)
+        flow.fetch_token(code=code, code_verifier=pending["code_verifier"])
         google_creds: Credentials = flow.credentials
 
         user_id = _get_google_user_id(google_creds)
@@ -263,6 +269,14 @@ class GoogleOAuthProvider(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _pkce_pair() -> tuple[str, str]:
+    """Return (code_verifier, code_challenge) using S256 method."""
+    verifier = secrets.token_urlsafe(96)
+    digest = hashlib.sha256(verifier.encode()).digest()
+    challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+    return verifier, challenge
+
 
 def _get_google_user_id(creds: Credentials) -> str:
     """Fetch the authenticated Google user's email via the People API."""
