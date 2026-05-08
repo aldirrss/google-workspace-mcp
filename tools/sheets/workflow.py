@@ -7,7 +7,17 @@ from typing import Any, Optional
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from auth.session import get_current_clients
 from utils import ResponseFormat, handle_google_error, to_json
+
+_NOT_AUTHORIZED = "Not authorized. Visit /auth/setup to connect your Google account."
+
+_EXPORT_MIME: dict[str, str] = {
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pdf":  "application/pdf",
+    "csv":  "text/csv",
+    "ods":  "application/x-vnd.oasis.opendocument.spreadsheet",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -81,26 +91,11 @@ class SheetsExportInput(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# MIME type map for export
-# ---------------------------------------------------------------------------
-
-_EXPORT_MIME: dict[str, str] = {
-    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "pdf":  "application/pdf",
-    "csv":  "text/csv",
-    "ods":  "application/x-vnd.oasis.opendocument.spreadsheet",
-}
-
-
-# ---------------------------------------------------------------------------
 # Tool registration factory
 # ---------------------------------------------------------------------------
 
-def register_sheets_workflow_tools(mcp, clients: dict) -> None:
+def register_sheets_workflow_tools(mcp) -> None:
     """Register composite Sheets workflow tools onto the FastMCP instance."""
-
-    sheets_api = clients["sheets"].spreadsheets()
-    drive_api  = clients["drive"].files()
 
     # ------------------------------------------------------------------
     # gws_sheets_create_with_data
@@ -124,10 +119,13 @@ def register_sheets_workflow_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with spreadsheet ID, URL, rows written, and sheet ID.
         """
+        clients = get_current_clients()
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             await ctx.report_progress(0.1, "Creating spreadsheet...")
 
-            # Step 1: Create spreadsheet with named sheet
             create_result = sheets_api.create(body={
                 "properties": {"title": params.title},
                 "sheets": [{"properties": {"title": params.sheet_name}}],
@@ -139,7 +137,6 @@ def register_sheets_workflow_tools(mcp, clients: dict) -> None:
 
             await ctx.report_progress(0.4, "Writing data...")
 
-            # Step 2: Write headers + rows in one call
             all_values: list[list[Any]] = [params.headers]
             if params.rows:
                 all_values.extend(params.rows)
@@ -151,7 +148,6 @@ def register_sheets_workflow_tools(mcp, clients: dict) -> None:
                 body={"values": all_values},
             ).execute()
 
-            # Step 3: Bold headers if requested
             if params.bold_headers:
                 await ctx.report_progress(0.7, "Applying header formatting...")
                 sheets_api.batchUpdate(
@@ -203,7 +199,11 @@ def register_sheets_workflow_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON summary of all updated ranges.
         """
+        clients = get_current_clients()
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             data = [
                 {"range": u["range"], "values": u["values"]}
                 for u in params.updates
@@ -244,7 +244,6 @@ def register_sheets_workflow_tools(mcp, clients: dict) -> None:
     async def gws_sheets_export(params: SheetsExportInput, ctx: Context) -> str:
         """
         Generate an export download URL for a spreadsheet in XLSX, PDF, CSV, or ODS format.
-        The URL is valid for ~1 hour using the Service Account's access token.
 
         Args:
             params.spreadsheet_id: Spreadsheet ID.
@@ -254,20 +253,12 @@ def register_sheets_workflow_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with the export download URL and MIME type.
         """
+        clients = get_current_clients()
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
             mime_type = _EXPORT_MIME[params.export_format]
 
-            export_params: dict = {"mimeType": mime_type}
-            if params.sheet_id is not None:
-                export_params["gid"] = str(params.sheet_id)
-
-            # Build the export URL (Drive export endpoint)
-            request = drive_api.export_media(
-                fileId=params.spreadsheet_id,
-                mimeType=mime_type,
-            )
-
-            # Return the request URI — caller downloads it with their auth token
             export_url = (
                 f"https://docs.google.com/spreadsheets/d/{params.spreadsheet_id}/export"
                 f"?format={params.export_format}"
@@ -276,11 +267,10 @@ def register_sheets_workflow_tools(mcp, clients: dict) -> None:
                 export_url += f"&gid={params.sheet_id}"
 
             return to_json({
-                "export_url":    export_url,
-                "format":        params.export_format,
-                "mime_type":     mime_type,
+                "export_url":     export_url,
+                "format":         params.export_format,
+                "mime_type":      mime_type,
                 "spreadsheet_id": params.spreadsheet_id,
-                "note": "URL requires authentication. Use with Service Account access token.",
             })
         except Exception as e:
             return handle_google_error(e)

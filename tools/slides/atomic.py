@@ -7,7 +7,10 @@ from typing import Optional
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, ConfigDict, Field
 
+from auth.session import get_current_clients
 from utils import ResponseFormat, format_file_list, handle_google_error, to_json
+
+_NOT_AUTHORIZED = "Not authorized. Visit /auth/setup to connect your Google account."
 
 
 # ---------------------------------------------------------------------------
@@ -66,7 +69,6 @@ class SlidesDeleteInput(BaseModel):
 # ---------------------------------------------------------------------------
 
 def _extract_slide_summary(slide: dict, index: int) -> dict:
-    """Extract a readable summary from a slide object."""
     texts: list[str] = []
     for element in slide.get("pageElements", []):
         shape = element.get("shape", {})
@@ -87,11 +89,8 @@ def _extract_slide_summary(slide: dict, index: int) -> dict:
 # Tool registration factory
 # ---------------------------------------------------------------------------
 
-def register_slides_atomic_tools(mcp, clients: dict) -> None:
+def register_slides_atomic_tools(mcp) -> None:
     """Register all basic Slides tools onto the FastMCP instance."""
-
-    slides_api = clients["slides"].presentations()
-    drive_api  = clients["drive"].files()
 
     # ------------------------------------------------------------------
     # gws_slides_create
@@ -110,7 +109,11 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with presentation ID and URL.
         """
+        clients = get_current_clients()
+        if not clients.get("slides"):
+            return _NOT_AUTHORIZED
         try:
+            slides_api = clients["slides"].presentations()
             result = slides_api.create(body={"title": params.title}).execute()
             pid = result["presentationId"]
             url = f"https://docs.google.com/presentation/d/{pid}/edit"
@@ -138,7 +141,11 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Presentation title, URL, slide count, and per-slide text.
         """
+        clients = get_current_clients()
+        if not clients.get("slides"):
+            return _NOT_AUTHORIZED
         try:
+            slides_api = clients["slides"].presentations()
             result = slides_api.get(presentationId=params.presentation_id).execute()
             title  = result.get("title", "Untitled")
             pid    = result["presentationId"]
@@ -180,7 +187,7 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
     )
     async def gws_slides_list(params: SlidesListInput, ctx: Context) -> str:
         """
-        List Google Slides presentations accessible by the Service Account.
+        List all Google Slides presentations in your Drive (owned, shared, and team drives).
 
         Args:
             params.query: Optional name filter (partial match).
@@ -190,7 +197,11 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: List of presentations with IDs and URLs.
         """
+        clients = get_current_clients()
+        if not clients.get("drive"):
+            return _NOT_AUTHORIZED
         try:
+            drive_api = clients["drive"].files()
             q = "mimeType='application/vnd.google-apps.presentation' and trashed=false"
             if params.query:
                 q += f" and name contains '{params.query}'"
@@ -235,19 +246,22 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with new slide ID and position.
         """
+        clients = get_current_clients()
+        if not clients.get("slides"):
+            return _NOT_AUTHORIZED
         try:
             import uuid
+            slides_api = clients["slides"].presentations()
             slide_id = f"slide_{uuid.uuid4().hex[:8]}"
 
             requests: list[dict] = [{
                 "createSlide": {
-                    "objectId":          slide_id,
+                    "objectId":             slide_id,
                     "slideLayoutReference": {"predefinedLayout": params.layout},
                     **({"insertionIndex": params.insertion_index} if params.insertion_index is not None else {}),
                 }
             }]
 
-            # Add title text if provided
             if params.title:
                 requests.append({
                     "insertText": {
@@ -256,7 +270,6 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
                     }
                 })
 
-            # Add body text if provided
             if params.body:
                 requests.append({
                     "insertText": {
@@ -265,16 +278,16 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
                     }
                 })
 
-            result = slides_api.batchUpdate(
+            slides_api.batchUpdate(
                 presentationId=params.presentation_id,
                 body={"requests": requests},
             ).execute()
 
             return to_json({
-                "slide_id":         slide_id,
-                "presentation_id":  params.presentation_id,
-                "layout":           params.layout,
-                "insertion_index":  params.insertion_index,
+                "slide_id":        slide_id,
+                "presentation_id": params.presentation_id,
+                "layout":          params.layout,
+                "insertion_index": params.insertion_index,
             })
         except Exception as e:
             return handle_google_error(e)
@@ -288,7 +301,7 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
     )
     async def gws_slides_delete(params: SlidesDeleteInput, ctx: Context) -> str:
         """
-        Delete a Google Slides presentation. Permanently deletes if owned by the Service Account,
+        Delete a Google Slides presentation. Permanently deletes if you own the file,
         otherwise moves to trash (Drive restriction: only owners can permanently delete).
 
         Args:
@@ -297,7 +310,11 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with action taken ('deleted' or 'trashed').
         """
+        clients = get_current_clients()
+        if not clients.get("drive"):
+            return _NOT_AUTHORIZED
         try:
+            drive_api = clients["drive"].files()
             meta = drive_api.get(
                 fileId=params.presentation_id,
                 fields="ownedByMe",
@@ -321,7 +338,7 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
                 return to_json({
                     "action":          "trashed",
                     "presentation_id": params.presentation_id,
-                    "reason":          "Service Account is not the owner. File moved to trash instead of permanent delete.",
+                    "reason":          "You are not the owner. File moved to trash instead of permanent delete.",
                 })
         except Exception as e:
             return handle_google_error(e)

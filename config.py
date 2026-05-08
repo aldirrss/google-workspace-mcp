@@ -2,36 +2,17 @@
 Configuration and environment variables for google-workspace-mcp.
 """
 
-import json
 import os
-from pathlib import Path
 
+# OAuth2 client secret (Web Application type from Google Cloud Console)
+GOOGLE_OAUTH_CLIENT_SECRET_JSON: str = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET_JSON", "")
+GOOGLE_OAUTH_CLIENT_SECRET_FILE: str = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET_FILE", "")
 
-def _load_service_account() -> dict:
-    """Load service account credentials from env or file path."""
-    raw_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-    if raw_json:
-        return json.loads(raw_json)
+# Public base URL of this server.
+# Used to build OAuth2 redirect URIs — must match what is registered in Google Cloud Console.
+# Example: https://gcp.lemacore.com
+SERVER_BASE_URL: str = os.getenv("SERVER_BASE_URL", "http://localhost:8347")
 
-    file_path = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE")
-    if file_path:
-        return json.loads(Path(file_path).read_text())
-
-    raise ValueError(
-        "Google Service Account credentials not found. "
-        "Set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_FILE."
-    )
-
-
-GOOGLE_SCOPES: list[str] = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/documents",
-    "https://www.googleapis.com/auth/presentations",
-    "https://www.googleapis.com/auth/drive",
-]
-
-SERVICE_ACCOUNT_INFO: dict = _load_service_account()
-
-SERVER_PORT: int = int(os.getenv("SERVER_PORT", "8080"))
+SERVER_PORT: int = int(os.getenv("SERVER_PORT", "8347"))
 SERVER_HOST: str = os.getenv("SERVER_HOST", "0.0.0.0")
-LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+LOG_LEVEL: str   = os.getenv("LOG_LEVEL", "INFO")

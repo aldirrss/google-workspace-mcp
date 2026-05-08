@@ -1,7 +1,7 @@
 services:
-  google-workspace-mcp:
+  mcp:
     build: .
-    container_name: google-workspace-mcp
+    container_name: google-workspace
     restart: unless-stopped
     ports:
       - "${SERVER_PORT:-8347}:${SERVER_PORT:-8347}"
@@ -9,7 +9,6 @@ services:
       - .env
     environment:
       - TRANSPORT=http
-      - GOOGLE_SERVICE_ACCOUNT_FILE=/secrets/service_account.json
     volumes:
       - ./secret:/secrets:ro
     healthcheck:
@@ -18,7 +17,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-
-# secrets:
-#   service_account:
-#     file: ./secrets/service_account.json
