@@ -117,11 +117,11 @@ if __name__ == "__main__":
 
     if args.transport == "http":
         _logger.info("Starting HTTP transport on %s:%d", args.host, args.port)
-        mcp.run(
-            transport="streamable-http",
-            host=args.host,
-            port=args.port,
-        )
+        # Set host/port via settings — compatible across FastMCP versions
+        # (older versions don't accept host/port as run() kwargs)
+        mcp.settings.host = args.host
+        mcp.settings.port = args.port
+        mcp.run(transport="streamable-http")
     else:
         _logger.info("Starting stdio transport")
         mcp.run()
