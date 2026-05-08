@@ -10,8 +10,8 @@ services:
     environment:
       - TRANSPORT=http
       - GOOGLE_SERVICE_ACCOUNT_FILE=/secrets/service_account.json
-    # secrets:
-    #   - service_account
+    volumes:
+      - ./secret:/secrets:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${SERVER_PORT:-8347}/health')"]
       interval: 30s
