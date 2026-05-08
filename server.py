@@ -15,8 +15,6 @@ Usage:
 import argparse
 import logging
 import sys
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from mcp.server.fastmcp import FastMCP
 
@@ -38,34 +36,11 @@ _logger = logging.getLogger("google-workspace-mcp")
 
 
 # ---------------------------------------------------------------------------
-# Lifespan: build API clients once, share across all tools
-# ---------------------------------------------------------------------------
-
-@asynccontextmanager
-async def app_lifespan(server: FastMCP) -> AsyncGenerator[dict, None]:
-    _logger.info("Initializing Google API clients...")
-    credentials = build_credentials()
-    clients     = build_clients(credentials)
-    _logger.info("Google API clients ready.")
-
-    # Register all tools with the shared clients
-    register_sheets_atomic_tools(server, clients)
-    register_sheets_workflow_tools(server, clients)
-    register_docs_atomic_tools(server, clients)
-    register_slides_atomic_tools(server, clients)
-
-    yield {"clients": clients}
-
-    _logger.info("Server shutting down.")
-
-
-# ---------------------------------------------------------------------------
 # MCP server instance
 # ---------------------------------------------------------------------------
 
 mcp = FastMCP(
     "google_workspace_mcp",
-    lifespan=app_lifespan,
     instructions=(
         "Google Workspace MCP — interact with Google Sheets, Docs, and Slides "
         "via Service Account authentication. All tools are prefixed with 'gws_'.\n\n"
@@ -75,6 +50,23 @@ mcp = FastMCP(
         "Use gws_sheets_list / gws_docs_list / gws_slides_list to discover accessible files."
     ),
 )
+
+
+# ---------------------------------------------------------------------------
+# Build API clients and register tools once at module load
+# ---------------------------------------------------------------------------
+
+_logger.info("Initializing Google API clients...")
+_credentials = build_credentials()
+_clients     = build_clients(_credentials)
+_logger.info("Google API clients ready.")
+
+register_sheets_atomic_tools(mcp, _clients)
+register_sheets_workflow_tools(mcp, _clients)
+register_docs_atomic_tools(mcp, _clients)
+register_slides_atomic_tools(mcp, _clients)
+
+_logger.info("All tools registered.")
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +109,6 @@ if __name__ == "__main__":
 
     if args.transport == "http":
         _logger.info("Starting HTTP transport on %s:%d", args.host, args.port)
-        # Set host/port via settings — compatible across FastMCP versions
-        # (older versions don't accept host/port as run() kwargs)
         mcp.settings.host = args.host
         mcp.settings.port = args.port
         mcp.run(transport="streamable-http")
