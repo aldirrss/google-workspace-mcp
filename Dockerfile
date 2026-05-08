@@ -11,7 +11,7 @@ COPY . .
 
 RUN chmod +x entrypoint.sh
 
-EXPOSE 8080
+EXPOSE 8347
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["http"]
