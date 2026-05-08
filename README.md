@@ -58,6 +58,23 @@ MCP server for Google Workspace — create, read, update, and delete Google Shee
 | `gws_slides_add_slide` | Add a slide with optional title, body, and layout |
 | `gws_slides_delete` | Delete a presentation (permanent if owned, trash if shared) |
 
+## For End Users
+
+If someone has already deployed this server, all you need to do is:
+
+1. Open [claude.ai](https://claude.ai) → profile avatar → **Settings** → **Integrations** → **Add more**
+2. Enter the server URL provided by your admin, e.g. `https://your-domain.com/mcp`
+3. Click **Connect** → you will be redirected to Google to sign in
+4. Sign in with your Google account → done, all your Drive files are accessible
+
+No configuration, no credentials, no file sharing required.
+
+---
+
+## For Server Admins
+
+The sections below are for whoever is **deploying and hosting** this server.
+
 ## Requirements
 
 - Python 3.12+
