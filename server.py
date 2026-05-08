@@ -17,6 +17,7 @@ import logging
 import sys
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 import config
 from auth import build_clients, build_credentials
@@ -41,6 +42,10 @@ _logger = logging.getLogger("google-workspace-mcp")
 
 mcp = FastMCP(
     "google_workspace_mcp",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=["localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*"],
+    ),
     instructions=(
         "Google Workspace MCP — interact with Google Sheets, Docs, and Slides "
         "via Service Account authentication. All tools are prefixed with 'gws_'.\n\n"
