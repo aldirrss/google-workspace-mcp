@@ -1,6 +1,6 @@
 # google-workspace-mcp
 
-MCP server for Google Workspace — create, read, update, and delete Google Sheets, Docs, and Slides using a Service Account.
+MCP server for Google Workspace — create, read, update, and delete Google Sheets, Docs, and Slides using your own Google account via OAuth2.
 
 ## Features
 
@@ -8,7 +8,7 @@ MCP server for Google Workspace — create, read, update, and delete Google Shee
 - **Google Docs** — basic CRUD: create, read, list, append text, delete
 - **Google Slides** — basic CRUD: create, read, list, add slides, delete
 - **Hybrid transport** — runs as `stdio` (Claude Desktop / Claude Code) or `HTTP` (Docker / remote)
-- **Service Account auth** — no user login required; single credentials shared across all tools
+- **OAuth2 multi-user auth** — each user authenticates with their own Google account; access all files in their Drive without manual sharing
 
 ## Tools (19 total)
 
@@ -62,7 +62,7 @@ MCP server for Google Workspace — create, read, update, and delete Google Shee
 
 - Python 3.12+
 - A Google Cloud project with Sheets, Docs, Drive, and Slides APIs enabled
-- A Service Account with a JSON key file
+- An OAuth2 **Web Application** client ID and secret
 
 ## Setup
 
@@ -81,39 +81,23 @@ MCP server for Google Workspace — create, read, update, and delete Google Shee
 
 Click the link → **Enable** (or search by name in **APIs & Services → Library**)
 
-### 2. Create a Service Account
+### 2. Create an OAuth2 Client ID
 
 1. Go to **APIs & Services → [Credentials](https://console.cloud.google.com/apis/credentials)**
-2. Click **+ Create Credentials → Service Account**
-3. Fill in:
-   - **Service account name**: e.g. `google-workspace-mcp`
-   - **Service account ID**: auto-filled, e.g. `google-workspace-mcp@your-project.iam.gserviceaccount.com`
-   - Description: optional
-4. Click **Create and Continue**
-5. **Grant this service account access to project** — skip this step (click **Continue**)
-6. **Grant users access to this service account** — skip (click **Done**)
+2. Click **+ Create Credentials → OAuth client ID**
+3. If prompted, configure the **OAuth consent screen** first:
+   - User type: **External** (or Internal if using Google Workspace org)
+   - Fill in App name and support email
+   - Add scopes: `../auth/drive`, `../auth/spreadsheets`, `../auth/documents`, `../auth/presentations`
+   - Add your email(s) as test users
+4. Back in **Create OAuth client ID**:
+   - Application type: **Web application**
+   - Name: e.g. `google-workspace-mcp`
+   - **Authorized redirect URIs**: add `https://your-domain.com/google/callback`
+     (for local testing add `http://localhost:8347/google/callback` as well)
+5. Click **Create** — download the JSON file (`client_secret_*.json`)
 
-### 3. Download the JSON Key File
-
-1. On the **Credentials** page, click the Service Account you just created
-2. Go to the **Keys** tab
-3. Click **Add Key → Create new key**
-4. Select **JSON** → **Create**
-5. A `.json` file will be downloaded automatically — **keep this file safe**, it contains your private key
-
-### 4. Share Files with the Service Account
-
-Copy the Service Account email (e.g. `google-workspace-mcp@your-project.iam.gserviceaccount.com`)
-from the Credentials page, then share any Drive file or folder with it:
-
-1. Open the file/folder in Google Drive
-2. Click **Share**
-3. Paste the Service Account email
-4. Set role to **Editor**
-5. Uncheck **Notify people** (Service Accounts don't read email)
-6. Click **Share**
-
-### 5. Choose how you want to run the server
+### 3. Choose how you want to run the server
 
 There are two ways to run this server. **Pick one** — you don't need both.
 
@@ -127,29 +111,27 @@ The server runs as a subprocess — no network port needed.
 **Requires:** Python 3.12+ and a virtual environment.
 
 ```bash
-# Create and activate a venv (isolates dependencies from your system Python)
+# Create and activate a venv
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# Install dependencies inside the venv
+# Install dependencies
 pip install -r requirements.txt
 
 # Set credentials
 cp .env.example .env
-# Edit .env — set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_FILE
+# Edit .env — set GOOGLE_OAUTH_CLIENT_SECRET_JSON or GOOGLE_OAUTH_CLIENT_SECRET_FILE
+#              and SERVER_BASE_URL=http://localhost:8347
 
 # Run
 python server.py
 ```
 
-> The venv is required here because `google-api-python-client` and `mcp` have many
-> sub-dependencies that can conflict with system-level packages.
-
 ---
 
-#### Option B — Docker (HTTP, for remote / multi-client access)
+#### Option B — Docker (HTTP, for remote / multi-user access)
 
-Use this if you want to deploy the server on a machine or server and connect to it over HTTP.
+Use this if you want to deploy the server on a VPS and connect from Claude Web or multiple users.
 Docker handles all isolation — **no venv needed**.
 
 **Requires:** Docker and Docker Compose.
@@ -157,31 +139,45 @@ Docker handles all isolation — **no venv needed**.
 ```bash
 # Set credentials
 cp .env.example .env
-# Edit .env — set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_FILE
+# Edit .env — set GOOGLE_OAUTH_CLIENT_SECRET_JSON or GOOGLE_OAUTH_CLIENT_SECRET_FILE
+#              and SERVER_BASE_URL=https://your-domain.com
 
-# Build image and start (required on first run or after code changes)
+# Build image and start
 docker compose up -d --build
 ```
 
-The container uses `entrypoint.sh` which runs automatically on start and:
-- Validates credentials before starting (exits with a clear error if missing)
-- Loads credentials from a file if `GOOGLE_SERVICE_ACCOUNT_FILE` is set (Docker secrets support)
-- Routes transport based on the `TRANSPORT` env var
+The container uses `entrypoint.sh` which validates that the OAuth2 client secret is present before starting, then routes transport based on the `TRANSPORT` env var.
 
-**Optional — use Docker secrets instead of an env var (more secure):**
+**Using Docker secrets (more secure):**
 
 ```yaml
 # docker-compose.yml
 services:
   google-workspace-mcp:
     environment:
-      - GOOGLE_SERVICE_ACCOUNT_FILE=/run/secrets/service_account
+      - GOOGLE_OAUTH_CLIENT_SECRET_FILE=/run/secrets/client_secret
     secrets:
-      - service_account
+      - client_secret
 
 secrets:
-  service_account:
-    file: ./secrets/service_account.json
+  client_secret:
+    file: ./secrets/client_secret.json
+```
+
+---
+
+### 4. Deploy Nginx reverse proxy (HTTP mode only)
+
+Copy the provided [nginx.conf](nginx.conf) to your server:
+
+```bash
+sudo cp nginx.conf /etc/nginx/sites-available/google-workspace-mcp
+sudo ln -s /etc/nginx/sites-available/google-workspace-mcp /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+
+# SSL (required for Claude Web)
+sudo certbot --nginx -d your-domain.com
 ```
 
 ## Running
@@ -190,16 +186,14 @@ secrets:
 |------|---------|----------|
 | Local stdio | `python server.py` | Claude Desktop / Claude Code (requires venv) |
 | Local HTTP | `python server.py --transport http --port 8347` | Testing HTTP locally |
-| Docker (first run) | `docker compose up -d --build` | Remote / production (no venv needed) |
+| Docker (first run) | `docker compose up -d --build` | Remote / production |
 | Docker (config change only) | `docker compose up -d` | After changing `.env` or `docker-compose.yml` |
 
 ## Connecting to Claude
 
-There are three clients that can connect to this server. Use the table below to pick the right setup:
-
 | Client | Transport | Requires |
 |--------|-----------|----------|
-| Claude Web (claude.ai) | HTTP remote | Deployed server with public URL |
+| Claude Web (claude.ai) | HTTP remote | Deployed server with public HTTPS URL |
 | Claude Desktop | stdio or HTTP | Local venv or deployed server |
 | Claude Code (CLI) | stdio or HTTP | Local venv or deployed server |
 
@@ -207,18 +201,14 @@ There are three clients that can connect to this server. Use the table below to 
 
 ### Claude Web (claude.ai)
 
-Claude Web connects to MCP servers over HTTP only — the server must be publicly accessible (e.g. deployed on a VPS behind Nginx with SSL).
+The server must be publicly accessible over HTTPS. When you add the server URL and click **Connect**, you will be redirected to Google to sign in — no manual file sharing required.
 
-1. Go to [claude.ai](https://claude.ai) → click your profile avatar (bottom left) → **Settings**
-2. Go to **Integrations** → **Add more**
-3. Enter the server URL: `https://your-domain.com/mcp`
-4. Click **Add** — Claude Web will verify the connection
+1. Go to [claude.ai](https://claude.ai) → profile avatar → **Settings** → **Integrations** → **Add more**
+2. Enter the server URL: `https://your-domain.com/mcp`
+3. Click **Connect** → you will be redirected to Google login
+4. Sign in with your Google account → all your Drive files are immediately accessible
 
-```
-Server URL: https://your-domain.com/mcp
-```
-
-> Claude Web requires HTTPS. Make sure SSL is set up on your server (see [nginx.conf](nginx.conf) + Certbot).
+> Each user connects with their own Google account. Multiple people can use the same deployed server independently.
 
 ---
 
@@ -235,15 +225,13 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
       "command": "/path/to/google-workspace-mcp/.venv/bin/python",
       "args": ["/path/to/google-workspace-mcp/server.py"],
       "env": {
-        "GOOGLE_SERVICE_ACCOUNT_JSON": "{...}"
+        "GOOGLE_OAUTH_CLIENT_SECRET_JSON": "{...}",
+        "SERVER_BASE_URL": "http://localhost:8347"
       }
     }
   }
 }
 ```
-
-> Use the full path to the venv Python binary — not the system `python` — so the installed
-> packages are found correctly.
 
 **Option B — Remote server (HTTP):**
 
@@ -273,7 +261,8 @@ Add to `~/.claude/settings.json` (global) or `.claude/settings.json` (per projec
       "command": "/path/to/google-workspace-mcp/.venv/bin/python",
       "args": ["/path/to/google-workspace-mcp/server.py"],
       "env": {
-        "GOOGLE_SERVICE_ACCOUNT_JSON": "{...}"
+        "GOOGLE_OAUTH_CLIENT_SECRET_JSON": "{...}",
+        "SERVER_BASE_URL": "http://localhost:8347"
       }
     }
   }
@@ -300,7 +289,9 @@ google-workspace-mcp/
 ├── server.py                   # Entry point — stdio + HTTP hybrid transport
 ├── config.py                   # Environment variable loader
 ├── auth/
-│   └── service_account.py      # Credentials and API client builder
+│   ├── mcp_provider.py         # MCP OAuth2 Authorization Server (delegates to Google)
+│   ├── oauth2.py               # Google OAuth2 flow helpers and API client builder
+│   └── session.py              # Per-user clients store (keyed by Google account)
 ├── tools/
 │   ├── sheets/
 │   │   ├── atomic.py           # 13 atomic Sheets tools
@@ -312,6 +303,7 @@ google-workspace-mcp/
 ├── utils/
 │   ├── errors.py               # Centralized Google API error handling
 │   └── formatters.py           # JSON / Markdown response helpers
+├── nginx.conf                  # Nginx reverse proxy config (VPS deployment)
 ├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
@@ -322,18 +314,18 @@ google-workspace-mcp/
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | Yes* | Full service account JSON as a string |
-| `GOOGLE_SERVICE_ACCOUNT_FILE` | Yes* | Path to service account JSON file |
+| `GOOGLE_OAUTH_CLIENT_SECRET_JSON` | Yes* | Full `client_secret.json` content as a string |
+| `GOOGLE_OAUTH_CLIENT_SECRET_FILE` | Yes* | Path to `client_secret.json` file |
+| `SERVER_BASE_URL` | Yes | Public base URL, e.g. `https://your-domain.com` |
 | `SERVER_PORT` | No | HTTP port (default: `8347`) |
 | `SERVER_HOST` | No | HTTP bind host (default: `0.0.0.0`) |
 | `LOG_LEVEL` | No | Logging level (default: `INFO`) |
 
-\* One of `GOOGLE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_FILE` is required.
+\* One of `GOOGLE_OAUTH_CLIENT_SECRET_JSON` or `GOOGLE_OAUTH_CLIENT_SECRET_FILE` is required.
 
-## Working with Shared Files
+## File Access
 
-The Service Account can access any file shared with its email address — including files in
-personal Drive, Shared Drives, and folders shared by other users.
+Each user can access all files in their own Google Drive — personal files, Shared Drives, and files shared with them by others. No manual sharing with a Service Account email is needed.
 
 ### Permission levels
 
@@ -344,18 +336,9 @@ personal Drive, Shared Drives, and folders shared by other users.
 | **Editor** | ✅ | ✅ | ✅ | trash only¹ |
 | **Owner** | ✅ | ✅ | ✅ | ✅ permanent |
 
-¹ Drive restricts permanent deletion to the file owner. When the Service Account is not the owner,
+¹ Drive restricts permanent deletion to the file owner. When the authenticated user is not the owner,
 `gws_sheets_delete` / `gws_docs_delete` / `gws_slides_delete` will **move the file to trash** instead
 and return `"action": "trashed"` in the response.
-
-### How to share a file
-
-1. Open the file in Google Drive
-2. Click **Share**
-3. Enter the Service Account email: `your-sa@your-project.iam.gserviceaccount.com`
-4. Set role to **Editor**
-5. Uncheck "Notify people" (Service Accounts don't read email)
-6. Click **Share**
 
 ## Response Formats
 
@@ -370,8 +353,8 @@ All tools return actionable error strings on failure:
 
 | HTTP Status | Message |
 |-------------|---------|
-| 401 | Authentication failed — check credentials and scopes |
-| 403 | Permission denied — share the file with the Service Account |
+| 401 | Not authorized — visit the server URL and connect your Google account |
+| 403 | Permission denied — you do not have access to this file |
 | 404 | Resource not found — check the ID |
 | 429 | Rate limit exceeded — wait and retry |
 | 5xx | Google API server error — retry later |
