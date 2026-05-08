@@ -32,3 +32,6 @@ build/
 .idea/
 *.swp
 *.swo
+
+# nginx
+nginx.conf

@@ -195,7 +195,36 @@ secrets:
 
 ## Connecting to Claude
 
+There are three clients that can connect to this server. Use the table below to pick the right setup:
+
+| Client | Transport | Requires |
+|--------|-----------|----------|
+| Claude Web (claude.ai) | HTTP remote | Deployed server with public URL |
+| Claude Desktop | stdio or HTTP | Local venv or deployed server |
+| Claude Code (CLI) | stdio or HTTP | Local venv or deployed server |
+
+---
+
+### Claude Web (claude.ai)
+
+Claude Web connects to MCP servers over HTTP only — the server must be publicly accessible (e.g. deployed on a VPS behind Nginx with SSL).
+
+1. Go to [claude.ai](https://claude.ai) → click your profile avatar (bottom left) → **Settings**
+2. Go to **Integrations** → **Add more**
+3. Enter the server URL: `https://your-domain.com/mcp`
+4. Click **Add** — Claude Web will verify the connection
+
+```
+Server URL: https://your-domain.com/mcp
+```
+
+> Claude Web requires HTTPS. Make sure SSL is set up on your server (see [nginx.conf](nginx.conf) + Certbot).
+
+---
+
 ### Claude Desktop
+
+**Option A — Local (stdio):**
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
@@ -216,9 +245,26 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 > Use the full path to the venv Python binary — not the system `python` — so the installed
 > packages are found correctly.
 
-### Claude Code
+**Option B — Remote server (HTTP):**
 
-Add to `.claude/settings.json` in your project, or `~/.claude/settings.json` globally:
+```json
+{
+  "mcpServers": {
+    "google-workspace": {
+      "type": "http",
+      "url": "https://your-domain.com/mcp"
+    }
+  }
+}
+```
+
+---
+
+### Claude Code (CLI)
+
+Add to `~/.claude/settings.json` (global) or `.claude/settings.json` (per project):
+
+**Option A — Local (stdio):**
 
 ```json
 {
@@ -234,14 +280,14 @@ Add to `.claude/settings.json` in your project, or `~/.claude/settings.json` glo
 }
 ```
 
-### HTTP transport (remote server)
+**Option B — Remote server (HTTP):**
 
 ```json
 {
   "mcpServers": {
     "google-workspace": {
       "type": "http",
-      "url": "http://localhost:8347/mcp"
+      "url": "https://your-domain.com/mcp"
     }
   }
 }
