@@ -7,6 +7,7 @@ from typing import Optional
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, ConfigDict, Field
 
+from auth.session import get_current_clients
 from utils import ResponseFormat, format_file_list, handle_google_error, to_json
 
 _NOT_AUTHORIZED = "Not authorized. Visit /auth/setup to connect your Google account."
@@ -88,7 +89,7 @@ def _extract_slide_summary(slide: dict, index: int) -> dict:
 # Tool registration factory
 # ---------------------------------------------------------------------------
 
-def register_slides_atomic_tools(mcp, clients: dict) -> None:
+def register_slides_atomic_tools(mcp) -> None:
     """Register all basic Slides tools onto the FastMCP instance."""
 
     # ------------------------------------------------------------------
@@ -108,6 +109,7 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with presentation ID and URL.
         """
+        clients = get_current_clients()
         if not clients.get("slides"):
             return _NOT_AUTHORIZED
         try:
@@ -139,6 +141,7 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Presentation title, URL, slide count, and per-slide text.
         """
+        clients = get_current_clients()
         if not clients.get("slides"):
             return _NOT_AUTHORIZED
         try:
@@ -194,6 +197,7 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: List of presentations with IDs and URLs.
         """
+        clients = get_current_clients()
         if not clients.get("drive"):
             return _NOT_AUTHORIZED
         try:
@@ -242,6 +246,7 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with new slide ID and position.
         """
+        clients = get_current_clients()
         if not clients.get("slides"):
             return _NOT_AUTHORIZED
         try:
@@ -305,6 +310,7 @@ def register_slides_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with action taken ('deleted' or 'trashed').
         """
+        clients = get_current_clients()
         if not clients.get("drive"):
             return _NOT_AUTHORIZED
         try:

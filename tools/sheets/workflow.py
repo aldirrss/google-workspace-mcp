@@ -7,6 +7,7 @@ from typing import Any, Optional
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from auth.session import get_current_clients
 from utils import ResponseFormat, handle_google_error, to_json
 
 _NOT_AUTHORIZED = "Not authorized. Visit /auth/setup to connect your Google account."
@@ -93,7 +94,7 @@ class SheetsExportInput(BaseModel):
 # Tool registration factory
 # ---------------------------------------------------------------------------
 
-def register_sheets_workflow_tools(mcp, clients: dict) -> None:
+def register_sheets_workflow_tools(mcp) -> None:
     """Register composite Sheets workflow tools onto the FastMCP instance."""
 
     # ------------------------------------------------------------------
@@ -118,6 +119,7 @@ def register_sheets_workflow_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with spreadsheet ID, URL, rows written, and sheet ID.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -197,6 +199,7 @@ def register_sheets_workflow_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON summary of all updated ranges.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -250,6 +253,7 @@ def register_sheets_workflow_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with the export download URL and MIME type.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:

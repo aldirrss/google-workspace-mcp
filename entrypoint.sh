@@ -16,14 +16,6 @@ if [ -z "$GOOGLE_OAUTH_CLIENT_SECRET_JSON" ]; then
     exit 1
 fi
 
-# Token file info
-TOKEN_FILE="${GOOGLE_TOKEN_FILE:-/secrets/token.json}"
-if [ -f "$TOKEN_FILE" ]; then
-    echo "OAuth2 token file found: $TOKEN_FILE"
-else
-    echo "No OAuth2 token found. Visit ${SERVER_BASE_URL:-http://localhost:8347}/auth/setup to authorize."
-fi
-
 TRANSPORT="${TRANSPORT:-http}"
 PORT="${SERVER_PORT:-8347}"
 HOST="${SERVER_HOST:-0.0.0.0}"

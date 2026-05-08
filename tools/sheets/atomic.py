@@ -7,6 +7,7 @@ from typing import Any, Optional
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from auth.session import get_current_clients
 from utils import ResponseFormat, format_file_list, format_spreadsheet_values, handle_google_error, to_json
 
 _NOT_AUTHORIZED = "Not authorized. Visit /auth/setup to connect your Google account."
@@ -151,7 +152,7 @@ class SheetsFormatRangeInput(BaseModel):
 # Tool registration factory
 # ---------------------------------------------------------------------------
 
-def register_sheets_atomic_tools(mcp, clients: dict) -> None:
+def register_sheets_atomic_tools(mcp) -> None:
     """Register all atomic Sheets tools onto the FastMCP instance."""
 
     # ------------------------------------------------------------------
@@ -172,6 +173,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Markdown or JSON with spreadsheet ID and URL.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -209,6 +211,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Spreadsheet metadata.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -258,6 +261,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with action taken ('deleted' or 'trashed') and reason.
         """
+        clients = get_current_clients()
         if not clients.get("drive"):
             return _NOT_AUTHORIZED
         try:
@@ -312,6 +316,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: List of spreadsheets with IDs and URLs.
         """
+        clients = get_current_clients()
         if not clients.get("drive"):
             return _NOT_AUTHORIZED
         try:
@@ -358,6 +363,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Cell values as a table or JSON array.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -396,6 +402,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with updated range and cell count.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -435,6 +442,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with update summary.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -471,6 +479,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON confirming cleared range.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -503,6 +512,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with the range where data was appended.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -543,6 +553,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with new sheet ID and title.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -584,6 +595,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Confirmation JSON.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -616,6 +628,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: List of sheet tabs.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:
@@ -668,6 +681,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Confirmation JSON.
         """
+        clients = get_current_clients()
         if not clients.get("sheets"):
             return _NOT_AUTHORIZED
         try:

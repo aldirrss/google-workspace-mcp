@@ -7,6 +7,7 @@ from typing import Optional
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, ConfigDict, Field
 
+from auth.session import get_current_clients
 from utils import ResponseFormat, format_file_list, handle_google_error, to_json
 
 _NOT_AUTHORIZED = "Not authorized. Visit /auth/setup to connect your Google account."
@@ -74,7 +75,7 @@ def _extract_plain_text(body: dict) -> str:
 # Tool registration factory
 # ---------------------------------------------------------------------------
 
-def register_docs_atomic_tools(mcp, clients: dict) -> None:
+def register_docs_atomic_tools(mcp) -> None:
     """Register all basic Docs tools onto the FastMCP instance."""
 
     # ------------------------------------------------------------------
@@ -94,6 +95,7 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with document ID and URL.
         """
+        clients = get_current_clients()
         if not clients.get("docs"):
             return _NOT_AUTHORIZED
         try:
@@ -125,6 +127,7 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Document title and plain-text content.
         """
+        clients = get_current_clients()
         if not clients.get("docs"):
             return _NOT_AUTHORIZED
         try:
@@ -161,6 +164,7 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: List of documents with IDs and URLs.
         """
+        clients = get_current_clients()
         if not clients.get("drive"):
             return _NOT_AUTHORIZED
         try:
@@ -207,6 +211,7 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON confirming the append operation.
         """
+        clients = get_current_clients()
         if not clients.get("docs"):
             return _NOT_AUTHORIZED
         try:
@@ -251,6 +256,7 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with action taken ('deleted' or 'trashed').
         """
+        clients = get_current_clients()
         if not clients.get("drive"):
             return _NOT_AUTHORIZED
         try:

@@ -8,11 +8,8 @@ import os
 GOOGLE_OAUTH_CLIENT_SECRET_JSON: str = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET_JSON", "")
 GOOGLE_OAUTH_CLIENT_SECRET_FILE: str = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET_FILE", "")
 
-# Path where the OAuth2 token is stored after first authorization
-GOOGLE_TOKEN_FILE: str = os.getenv("GOOGLE_TOKEN_FILE", "/secrets/token.json")
-
-# Public base URL of this server — used to build the OAuth2 callback redirect URI.
-# Must match exactly what you registered in Google Cloud Console as an authorized redirect URI.
+# Public base URL of this server.
+# Used to build OAuth2 redirect URIs — must match what is registered in Google Cloud Console.
 # Example: https://gcp.lemacore.com
 SERVER_BASE_URL: str = os.getenv("SERVER_BASE_URL", "http://localhost:8347")
 
