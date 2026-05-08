@@ -8,7 +8,7 @@ Supports two transports:
 
 Usage:
   python server.py                          # stdio
-  python server.py --transport http         # HTTP on :8080
+  python server.py --transport http         # HTTP on :8347
   python server.py --transport http --port 9000
 """
 
@@ -88,7 +88,7 @@ def _parse_args() -> argparse.Namespace:
         epilog=(
             "Examples:\n"
             "  python server.py                        # stdio (Claude Desktop/Code)\n"
-            "  python server.py --transport http       # HTTP on :8080\n"
+            "  python server.py --transport http       # HTTP on :8347\n"
             "  python server.py --transport http --port 9000\n"
         ),
     )
@@ -117,11 +117,11 @@ if __name__ == "__main__":
 
     if args.transport == "http":
         _logger.info("Starting HTTP transport on %s:%d", args.host, args.port)
-        mcp.run(
-            transport="streamable-http",
-            host=args.host,
-            port=args.port,
-        )
+        # Set host/port via settings — compatible across FastMCP versions
+        # (older versions don't accept host/port as run() kwargs)
+        mcp.settings.host = args.host
+        mcp.settings.port = args.port
+        mcp.run(transport="streamable-http")
     else:
         _logger.info("Starting stdio transport")
         mcp.run()
