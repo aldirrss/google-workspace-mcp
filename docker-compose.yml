@@ -9,6 +9,7 @@ services:
       - .env
     environment:
       - TRANSPORT=http
+      - GOOGLE_SERVICE_ACCOUNT_FILE=/secrets/service_account.json
     # secrets:
     #   - service_account
     healthcheck:
