@@ -189,7 +189,7 @@ secrets:
 | Mode | Command | Use case |
 |------|---------|----------|
 | Local stdio | `python server.py` | Claude Desktop / Claude Code (requires venv) |
-| Local HTTP | `python server.py --transport http --port 8080` | Testing HTTP locally |
+| Local HTTP | `python server.py --transport http --port 8347` | Testing HTTP locally |
 | Docker | `docker compose up -d` | Remote / production (no venv needed) |
 
 ## Connecting to Claude
@@ -240,7 +240,7 @@ Add to `.claude/settings.json` in your project, or `~/.claude/settings.json` glo
   "mcpServers": {
     "google-workspace": {
       "type": "http",
-      "url": "http://localhost:8080/mcp"
+      "url": "http://localhost:8347/mcp"
     }
   }
 }
@@ -277,7 +277,7 @@ google-workspace-mcp/
 |----------|----------|-------------|
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Yes* | Full service account JSON as a string |
 | `GOOGLE_SERVICE_ACCOUNT_FILE` | Yes* | Path to service account JSON file |
-| `SERVER_PORT` | No | HTTP port (default: `8080`) |
+| `SERVER_PORT` | No | HTTP port (default: `8347`) |
 | `SERVER_HOST` | No | HTTP bind host (default: `0.0.0.0`) |
 | `LOG_LEVEL` | No | Logging level (default: `INFO`) |
 
