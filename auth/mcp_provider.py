@@ -279,7 +279,25 @@ def _pkce_pair() -> tuple[str, str]:
 
 
 def _get_google_user_id(creds: Credentials) -> str:
-    """Fetch the authenticated Google user's email via the People API."""
+    """Return the authenticated user's email.
+
+    Tries the ID token first (zero extra API calls), falls back to the
+    userinfo endpoint when the ID token is absent.
+    """
+    import base64
+    import json as _json
+
+    if getattr(creds, "id_token", None):
+        try:
+            # JWT payload is the second dot-separated segment (base64url-encoded)
+            payload_b64 = creds.id_token.split(".")[1]
+            payload_b64 += "=" * (4 - len(payload_b64) % 4)
+            payload = _json.loads(base64.urlsafe_b64decode(payload_b64))
+            if email := payload.get("email"):
+                return email
+        except Exception:
+            pass
+
     from googleapiclient.discovery import build as build_service
     service = build_service("oauth2", "v2", credentials=creds)
     info = service.userinfo().get().execute()

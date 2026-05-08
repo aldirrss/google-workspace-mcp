@@ -18,6 +18,8 @@ from googleapiclient.discovery import build
 _logger = logging.getLogger(__name__)
 
 SCOPES: list[str] = [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/documents",
     "https://www.googleapis.com/auth/presentations",
