@@ -51,9 +51,30 @@ def save_credentials(creds: Credentials, token_path: str) -> None:
 def get_client_config(json_str: str = "", file_path: str = "") -> dict[str, Any]:
     """Load OAuth2 client secret from env string or file path."""
     if json_str:
-        return json.loads(json_str)
+        # Strip surrounding whitespace and accidental shell quotes that docker-compose
+        # may include when the .env value is wrapped in single or double quotes.
+        cleaned = json_str.strip().strip("'\"")
+        if not cleaned:
+            raise ValueError(
+                "GOOGLE_OAUTH_CLIENT_SECRET_JSON is set but empty after stripping. "
+                "Paste the full client_secret.json content without surrounding quotes."
+            )
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"GOOGLE_OAUTH_CLIENT_SECRET_JSON is not valid JSON: {exc}. "
+                "Make sure you pasted the full content of client_secret.json "
+                "without surrounding shell quotes."
+            ) from exc
     if file_path:
-        return json.loads(Path(file_path).read_text())
+        content = Path(file_path).read_text().strip()
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"client_secret.json at {file_path!r} is not valid JSON: {exc}"
+            ) from exc
     raise ValueError(
         "OAuth2 client secret not configured. "
         "Set GOOGLE_OAUTH_CLIENT_SECRET_JSON or GOOGLE_OAUTH_CLIENT_SECRET_FILE."
