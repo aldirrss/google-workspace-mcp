@@ -105,8 +105,8 @@ Click the link → **Enable** (or search by name in **APIs & Services → Librar
 3. If prompted, configure the **OAuth consent screen** first:
    - User type: **External** (or Internal if using Google Workspace org)
    - Fill in App name and support email
-   - Add scopes: `../auth/drive`, `../auth/spreadsheets`, `../auth/documents`, `../auth/presentations`
-   - Add your email(s) as test users
+   - Add scopes: `openid`, `email`, `../auth/drive`, `../auth/spreadsheets`, `../auth/documents`, `../auth/presentations`
+   - Add your email(s) as **Test users** (required while the app is unverified)
 4. Back in **Create OAuth client ID**:
    - Application type: **Web application**
    - Name: e.g. `google-workspace-mcp`
@@ -224,6 +224,8 @@ The server must be publicly accessible over HTTPS. When you add the server URL a
 2. Enter the server URL: `https://your-domain.com/mcp`
 3. Click **Connect** → you will be redirected to Google login
 4. Sign in with your Google account → all your Drive files are immediately accessible
+
+> **Unverified app warning**: While the OAuth app is in Testing mode, Google shows a warning screen. Click **Advanced** → **Proceed to [your-domain] (unsafe)** to continue. This is expected for apps that haven't gone through Google's verification process.
 
 > Each user connects with their own Google account. Multiple people can use the same deployed server independently.
 
