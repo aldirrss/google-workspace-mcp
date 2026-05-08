@@ -14,6 +14,7 @@ Usage:
 import argparse
 import logging
 import sys
+from contextlib import asynccontextmanager
 
 import uvicorn
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
@@ -145,10 +146,21 @@ if __name__ == "__main__":
         mcp.settings.port = args.port
 
         mcp_app = mcp.streamable_http_app()
-        app = Starlette(routes=[
-            Route("/google/callback", google_callback),
-            Mount("/", app=mcp_app),
-        ])
+
+        # Propagate the MCP app's lifespan so its StreamableHTTPSessionManager
+        # task group is initialized before the first request arrives.
+        @asynccontextmanager
+        async def lifespan(app: Starlette):
+            async with mcp_app.router.lifespan_context(mcp_app):
+                yield
+
+        app = Starlette(
+            routes=[
+                Route("/google/callback", google_callback),
+                Mount("/", app=mcp_app),
+            ],
+            lifespan=lifespan,
+        )
 
         uvicorn.run(app, host=args.host, port=args.port)
     else:
