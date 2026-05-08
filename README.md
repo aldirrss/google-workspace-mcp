@@ -159,8 +159,8 @@ Docker handles all isolation — **no venv needed**.
 cp .env.example .env
 # Edit .env — set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_FILE
 
-# Build and start
-docker compose up -d
+# Build image and start (required on first run or after code changes)
+docker compose up -d --build
 ```
 
 The container uses `entrypoint.sh` which runs automatically on start and:
@@ -190,7 +190,8 @@ secrets:
 |------|---------|----------|
 | Local stdio | `python server.py` | Claude Desktop / Claude Code (requires venv) |
 | Local HTTP | `python server.py --transport http --port 8347` | Testing HTTP locally |
-| Docker | `docker compose up -d` | Remote / production (no venv needed) |
+| Docker (first run) | `docker compose up -d --build` | Remote / production (no venv needed) |
+| Docker (config change only) | `docker compose up -d` | After changing `.env` or `docker-compose.yml` |
 
 ## Connecting to Claude
 
