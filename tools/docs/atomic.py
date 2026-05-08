@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from utils import ResponseFormat, format_file_list, handle_google_error, to_json
 
+_NOT_AUTHORIZED = "Not authorized. Visit /auth/setup to connect your Google account."
+
 
 # ---------------------------------------------------------------------------
 # Input models
@@ -54,7 +56,6 @@ class DocsDeleteInput(BaseModel):
 # ---------------------------------------------------------------------------
 
 def _extract_plain_text(body: dict) -> str:
-    """Extract plain text from a Docs body content structure."""
     lines: list[str] = []
     for element in body.get("content", []):
         paragraph = element.get("paragraph")
@@ -76,9 +77,6 @@ def _extract_plain_text(body: dict) -> str:
 def register_docs_atomic_tools(mcp, clients: dict) -> None:
     """Register all basic Docs tools onto the FastMCP instance."""
 
-    docs_api  = clients["docs"].documents()
-    drive_api = clients["drive"].files()
-
     # ------------------------------------------------------------------
     # gws_docs_create
     # ------------------------------------------------------------------
@@ -96,7 +94,10 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with document ID and URL.
         """
+        if not clients.get("docs"):
+            return _NOT_AUTHORIZED
         try:
+            docs_api = clients["docs"].documents()
             result = docs_api.create(body={"title": params.title}).execute()
             did = result["documentId"]
             url = f"https://docs.google.com/document/d/{did}/edit"
@@ -124,7 +125,10 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Document title and plain-text content.
         """
+        if not clients.get("docs"):
+            return _NOT_AUTHORIZED
         try:
+            docs_api = clients["docs"].documents()
             result = docs_api.get(documentId=params.document_id).execute()
             title = result.get("title", "Untitled")
             did   = result["documentId"]
@@ -147,7 +151,7 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
     )
     async def gws_docs_list(params: DocsListInput, ctx: Context) -> str:
         """
-        List Google Documents accessible by the Service Account.
+        List all Google Documents in your Drive (owned, shared, and team drives).
 
         Args:
             params.query: Optional name filter (partial match).
@@ -157,7 +161,10 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: List of documents with IDs and URLs.
         """
+        if not clients.get("drive"):
+            return _NOT_AUTHORIZED
         try:
+            drive_api = clients["drive"].files()
             q = "mimeType='application/vnd.google-apps.document' and trashed=false"
             if params.query:
                 q += f" and name contains '{params.query}'"
@@ -200,7 +207,10 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON confirming the append operation.
         """
+        if not clients.get("docs"):
+            return _NOT_AUTHORIZED
         try:
+            docs_api = clients["docs"].documents()
             content = ("\n" + params.text) if params.add_newline else params.text
 
             docs_api.batchUpdate(
@@ -232,7 +242,7 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
     )
     async def gws_docs_delete(params: DocsDeleteInput, ctx: Context) -> str:
         """
-        Delete a Google Document. Permanently deletes if owned by the Service Account,
+        Delete a Google Document. Permanently deletes if you own the file,
         otherwise moves to trash (Drive restriction: only owners can permanently delete).
 
         Args:
@@ -241,7 +251,10 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with action taken ('deleted' or 'trashed').
         """
+        if not clients.get("drive"):
+            return _NOT_AUTHORIZED
         try:
+            drive_api = clients["drive"].files()
             meta = drive_api.get(
                 fileId=params.document_id,
                 fields="ownedByMe",
@@ -265,7 +278,7 @@ def register_docs_atomic_tools(mcp, clients: dict) -> None:
                 return to_json({
                     "action":      "trashed",
                     "document_id": params.document_id,
-                    "reason":      "Service Account is not the owner. File moved to trash instead of permanent delete.",
+                    "reason":      "You are not the owner. File moved to trash instead of permanent delete.",
                 })
         except Exception as e:
             return handle_google_error(e)

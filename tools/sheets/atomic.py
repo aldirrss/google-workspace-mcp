@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from utils import ResponseFormat, format_file_list, format_spreadsheet_values, handle_google_error, to_json
 
+_NOT_AUTHORIZED = "Not authorized. Visit /auth/setup to connect your Google account."
+
 
 # ---------------------------------------------------------------------------
 # Input models
@@ -152,9 +154,6 @@ class SheetsFormatRangeInput(BaseModel):
 def register_sheets_atomic_tools(mcp, clients: dict) -> None:
     """Register all atomic Sheets tools onto the FastMCP instance."""
 
-    sheets_api = clients["sheets"].spreadsheets()
-    drive_api  = clients["drive"].files()
-
     # ------------------------------------------------------------------
     # gws_sheets_create
     # ------------------------------------------------------------------
@@ -173,7 +172,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Markdown or JSON with spreadsheet ID and URL.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             sheets_body: dict = {"properties": {"title": params.title}}
             if params.sheet_names:
                 sheets_body["sheets"] = [
@@ -207,7 +209,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Spreadsheet metadata.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             result = sheets_api.get(
                 spreadsheetId=params.spreadsheet_id,
                 fields="spreadsheetId,properties/title,sheets/properties",
@@ -244,9 +249,8 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
     )
     async def gws_sheets_delete(params: SheetsDeleteInput, ctx: Context) -> str:
         """
-        Delete a spreadsheet. If the Service Account owns the file, it is permanently deleted.
-        If the file is shared (not owned), it is moved to trash instead — Drive only allows
-        owners to permanently delete files.
+        Delete a spreadsheet. Permanently deleted if you own the file, moved to
+        trash if shared with you (Drive only allows owners to permanently delete).
 
         Args:
             params.spreadsheet_id: The spreadsheet ID to delete.
@@ -254,7 +258,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with action taken ('deleted' or 'trashed') and reason.
         """
+        if not clients.get("drive"):
+            return _NOT_AUTHORIZED
         try:
+            drive_api = clients["drive"].files()
             meta = drive_api.get(
                 fileId=params.spreadsheet_id,
                 fields="ownedByMe",
@@ -281,7 +288,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
                 return to_json({
                     "action":         "trashed",
                     "spreadsheet_id": params.spreadsheet_id,
-                    "reason":         "Service Account is not the owner. File moved to trash instead of permanent delete.",
+                    "reason":         "You are not the owner. File moved to trash instead of permanent delete.",
                 })
         except Exception as e:
             return handle_google_error(e)
@@ -295,7 +302,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
     )
     async def gws_sheets_list(params: SheetsListInput, ctx: Context) -> str:
         """
-        List all spreadsheets accessible by the Service Account.
+        List all spreadsheets in your Google Drive (owned, shared, and team drives).
 
         Args:
             params.query: Optional name filter (partial match).
@@ -305,7 +312,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: List of spreadsheets with IDs and URLs.
         """
+        if not clients.get("drive"):
+            return _NOT_AUTHORIZED
         try:
+            drive_api = clients["drive"].files()
             q = "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
             if params.query:
                 q += f" and name contains '{params.query}'"
@@ -348,7 +358,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Cell values as a table or JSON array.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             result = sheets_api.values().get(
                 spreadsheetId=params.spreadsheet_id,
                 range=params.range,
@@ -383,7 +396,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with updated range and cell count.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             result = sheets_api.values().update(
                 spreadsheetId=params.spreadsheet_id,
                 range=params.range,
@@ -401,7 +417,7 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
             return handle_google_error(e)
 
     # ------------------------------------------------------------------
-    # gws_sheets_update_range (alias with explicit semantics)
+    # gws_sheets_update_range
     # ------------------------------------------------------------------
     @mcp.tool(
         name="gws_sheets_update_range",
@@ -419,7 +435,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with update summary.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             result = sheets_api.values().update(
                 spreadsheetId=params.spreadsheet_id,
                 range=params.range,
@@ -452,7 +471,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON confirming cleared range.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             result = sheets_api.values().clear(
                 spreadsheetId=params.spreadsheet_id,
                 range=params.range,
@@ -481,7 +503,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with the range where data was appended.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             result = sheets_api.values().append(
                 spreadsheetId=params.spreadsheet_id,
                 range=params.range,
@@ -518,7 +543,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: JSON with new sheet ID and title.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             props: dict = {"title": params.title}
             if params.index is not None:
                 props["index"] = params.index
@@ -556,7 +584,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Confirmation JSON.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             body = {"requests": [{"deleteSheet": {"sheetId": params.sheet_id}}]}
             sheets_api.batchUpdate(
                 spreadsheetId=params.spreadsheet_id,
@@ -585,7 +616,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: List of sheet tabs.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             result = sheets_api.get(
                 spreadsheetId=params.spreadsheet_id,
                 fields="properties/title,sheets/properties(sheetId,title,index,sheetType)",
@@ -634,7 +668,10 @@ def register_sheets_atomic_tools(mcp, clients: dict) -> None:
         Returns:
             str: Confirmation JSON.
         """
+        if not clients.get("sheets"):
+            return _NOT_AUTHORIZED
         try:
+            sheets_api = clients["sheets"].spreadsheets()
             cell_format: dict = {}
             fields_list: list[str] = []
 
